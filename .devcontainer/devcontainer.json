@@ -4,7 +4,14 @@
 
   "postCreateCommand": "pip install -r requirements.txt",
 
-  "postStartCommand": "streamlit run app.py --server.port 8501 --server.address 0.0.0.0",
+  "postStartCommand": "echo 'container ready'",
 
-  "forwardPorts": [8501]
+  "forwardPorts": [8501],
+
+  "portsAttributes": {
+    "8501": {
+      "label": "Streamlit App",
+      "onAutoForward": "openBrowser"
+    }
+  }
 }
