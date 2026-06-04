@@ -4,7 +4,7 @@
 
   "postCreateCommand": "pip install -r requirements.txt",
 
-  "postStartCommand": "nohup streamlit run app.py --server.address 0.0.0.0 --server.port 8501 > streamlit.log 2>&1 &",
+  "postStartCommand": "bash .devcontainer/start.sh",
 
   "forwardPorts": [8501],
 

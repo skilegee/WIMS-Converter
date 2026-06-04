@@ -14,3 +14,14 @@ if file:
 
     st.write("Converted Data")
     st.dataframe(converted)
+
+ # Create downloadable CSV
+    csv = converted.to_csv(index=False)
+
+    st.download_button(
+        label="Download WIMS CSV",
+        data=csv,
+        file_name="WIMS_Import.csv",
+        mime="text/csv"
+    )
+    
