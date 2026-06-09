@@ -23,177 +23,171 @@ def convert_mgL_to_ugL(value):
     except:
         return value
 
+
 # -----------------------------
-# MAP LAB ANALYTE NAMES
-# TO WIMS ANALYTE NAMES
+# MAP LAB ANALYTE → WIMS PARAMETER NAME
 # -----------------------------
 def map_analyte(name):
 
     name_lower = str(name).lower().strip()
 
-    # Copper PD
+    # =============================
+    # CHROMIUM (SPECIFIC FIRST)
+    # =============================
+    if "hexavalent" in name_lower:
+        return "Chromium Hexavalent"
+
+    if "chromium iii" in name_lower and "dissolved" in name_lower:
+        return "Chromium, Dissolved"
+
+    if "chromium iii" in name_lower:
+        return "Chromium, Total Recoverable"
+
+    if "chromium" in name_lower and "dissolved" in name_lower:
+        return "Chromium, Dissolved"
+
+    if "chromium" in name_lower:
+        return "Chromium, Total Recoverable"
+
+    # =============================
+    # COPPER
+    # =============================
     if "copper" in name_lower and "dissolved" in name_lower:
         return "Copper, Dissolved"
-    
-    # Silver PD
-    if "silver" in name_lower and "dissolved" in name_lower:
-        return "Silver, Dissolved"
-    
 
-    # Cadmium TR
-    if "cadmium" in name_lower:
-        return "Cadmium, Total Recoverable"
-    # Cadmium Dissolved
-    if"cadmium" in name_lower and "dissolved" in name_lower:
-        return "Cadmium, Dissolved"
+    if "copper" in name_lower:
+        return "Copper, Total Recoverable"
 
-
-    # Chromium Total 
-    if "chromium" in name_lower:
-        return "Chromium, Total"
-    # Chromium  PD
-    if "chromium III" in name_lower and "dissolved" in name_lower:
-        return "Chromium, Dissolved"
-
-
-    # Chromium III Total 
-    if "chromium III" in name_lower:
-        return "Chromium, Total Recoverable"
-    # Chromium III PD
-    if "chromium III" in name_lower and "dissolved" in name_lower:
-        return "Chromium, Dissolved"
-
-
-   # Chromium-HV Total 
-    if "chromium" in name_lower and "hexavalent":
-        return "Chromium, Hexavalent"
-    # Chromium-HV PD
-    if "hexavalent" in name_lower and "dissolved" in name_lower:
-        return "Chromium, Dissolved"
-
-
-    # Lead Total
-    if "lead" in name_lower:
-        return "Lead, Total"  
-    # Lead PD
+    # =============================
+    # LEAD
+    # =============================
     if "lead" in name_lower and "dissolved" in name_lower:
         return "Lead, Dissolved"
 
+    if "lead" in name_lower:
+        return "Lead, Total Recoverable"
 
-    # Zinc PD
+    # =============================
+    # CADMIUM
+    # =============================
+    if "cadmium" in name_lower and "dissolved" in name_lower:
+        return "Cadmium, Dissolved"
+
+    if "cadmium" in name_lower:
+        return "Cadmium, Total Recoverable"
+
+    # =============================
+    # ZINC
+    # =============================
     if "zinc" in name_lower and "dissolved" in name_lower:
         return "Zinc, Dissolved"
 
-    # Iron TR
-    if "iron" in name_lower:
-        return "Iron, Total Recoverable"
-    # Iron Dissolved
+    if "zinc" in name_lower:
+        return "Zinc, Total Recoverable"
+
+    # =============================
+    # IRON
+    # =============================
     if "iron" in name_lower and "dissolved" in name_lower:
         return "Iron, Dissolved"
 
+    if "iron" in name_lower:
+        return "Iron, Total Recoverable"
 
-    # Arsenic TR
-    if "arsenic" in name_lower:
-        return "Arsenic, Total Recoverable"
-     # Arsenic Dissolved
+    # =============================
+    # ARSENIC
+    # =============================
     if "arsenic" in name_lower and "dissolved" in name_lower:
         return "Arsenic, Dissolved"
 
-    # Nickel TR 
-    if "nickel" in name_lower:
-        return "Nickel, Total"
-    
-    # Nickel PD 
+    if "arsenic" in name_lower:
+        return "Arsenic, Total Recoverable"
+
+    # =============================
+    # NICKEL
+    # =============================
     if "nickel" in name_lower and "dissolved" in name_lower:
         return "Nickel, Dissolved"
 
-    # Selenium PD
+    if "nickel" in name_lower:
+        return "Nickel, Total Recoverable"
+
+    # =============================
+    # SELENIUM
+    # =============================
     if "selenium" in name_lower and "dissolved" in name_lower:
         return "Selenium, Dissolved"
-    
-    # Cyanide
-    if "cyanide" in name_lower:
-        return "Cyanide, Dissolved"
-    
-    # Molybdenum TR
+
+    if "selenium" in name_lower:
+        return "Selenium, Total Recoverable"
+
+    # =============================
+    # OTHER METALS
+    # =============================
+    if "silver" in name_lower and "dissolved" in name_lower:
+        return "Silver, Dissolved"
+
+    if "silver" in name_lower:
+        return "Silver, Total Recoverable"
+
     if "molybdenum" in name_lower:
-        return "Molybdenum, Total"
-    
+        return "Molybdenum, Total Recoverable"
+
+    if "cyanide" in name_lower:
+        return "Cyanide, Total"
+
+    # fallback
     return name
+
 
 # -----------------------------
 # MAIN CONVERSION FUNCTION
 # -----------------------------
 def convert_to_wims(df):
 
-    # IMPORTANT FIX:
-    # prevent pandas string dtype crash
+    # Fix pandas dtype issues
     df["RESULT"] = df["RESULT"].astype("object")
 
-    # Clean text fields safely
+    # Clean fields
     df["SAMPLENAME"] = df["SAMPLENAME"].fillna("").astype(str).str.strip()
     df["ANALYTE"] = df["ANALYTE"].fillna("").astype(str).str.strip()
     df["METHOD"] = df["METHOD"].fillna("").astype(str).str.strip()
     df["Units"] = df["Units"].fillna("").astype(str).str.strip().str.lower()
 
-    # DEBUGG
+    # DEBUG (optional)
     print("Before mapping:")
     print(sorted(df["ANALYTE"].unique()))
 
-    # -----------------------------
-    # APPLY ANALYTE MAPPING
-    # -----------------------------
+    # Apply mapping
     df["ANALYTE"] = df["ANALYTE"].apply(map_analyte)
 
-
-    # DEBUG
+    # DEBUG (optional)
     print("After mapping:")
     print(sorted(df["ANALYTE"].unique()))
 
     # -----------------------------
-    # Metals to convert ONLY
+    # METAL DETECTION (SAFE VERSION)
     # -----------------------------
-    metals_to_convert = [
-        "Copper",
-        "Lead",
-        "Iron",
-        "Arsenic",
-        "Cadmium",
-        "Molybdenum",
-        "Nickel",
-        "Selenium",
-        "Silver",
-        "Chromium",
-        "Hexavalent Chromium",
-        "Zinc",
-        "Cyanide",
-        "Nonylphenol"
+    valid_metals = [
+        "Copper", "Lead", "Iron", "Arsenic", "Cadmium",
+        "Molybdenum", "Nickel", "Selenium", "Silver",
+        "Chromium", "Zinc", "Cyanide"
     ]
 
-    # -----------------------------
-    # Detect matching analytes
-    # (handles long names like ICPMS labels)
-    # -----------------------------
     metal_mask = df["ANALYTE"].apply(
-        lambda x: any(
-            metal.lower() in x.lower()
-            for metal in metals_to_convert
-        )
+        lambda x: any(m.lower() in str(x).lower() for m in valid_metals)
     )
 
-    # Only convert mg/L rows
+    # Only mg/L rows
     unit_mask = df["Units"].eq("mg/l")
 
     convert_mask = metal_mask & unit_mask
 
-    # -----------------------------
-    # APPLY CONVERSION
-    # -----------------------------
-    df.loc[convert_mask, "RESULT"] = df.loc[convert_mask, "RESULT"].apply(
-        convert_mgL_to_ugL
-    )
+    # Convert values
+    df.loc[convert_mask, "RESULT"] = df.loc[
+        convert_mask, "RESULT"
+    ].apply(convert_mgL_to_ugL)
 
-    # Update units after conversion
     df.loc[convert_mask, "Units"] = "ug/L"
 
     # -----------------------------
@@ -208,7 +202,6 @@ def convert_to_wims(df):
         "Notes": df["METHOD"]
     })
 
-    # Remove empty results only
     wims_df = wims_df.dropna(subset=["Value"])
 
-    return wims_df
+    return wims_dfs
