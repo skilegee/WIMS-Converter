@@ -133,6 +133,11 @@ def convert_to_wims(df):
     # Clean text fields safely
     df["SAMPLENAME"] = df["SAMPLENAME"].fillna("").astype(str).str.strip()
     df["ANALYTE"] = df["ANALYTE"].fillna("").astype(str).str.strip()
+
+    # DEBUG
+    print("Analytes found in upload:")
+    print(df["ANALYTE"].unique())
+
     df["METHOD"] = df["METHOD"].fillna("").astype(str).str.strip()
     df["Units"] = df["Units"].fillna("").astype(str).str.strip().str.lower()
 
@@ -141,6 +146,10 @@ def convert_to_wims(df):
     # APPLY ANALYTE MAPPING
     # -----------------------------
     df["ANALYTE"] = df["ANALYTE"].apply(map_analyte)
+
+    # PRINT DEBUG
+    print("Analytes after mapping:")
+    print(sorted(df["ANALYTE"].unique()))
 
     # -----------------------------
     # Metals to convert ONLY
