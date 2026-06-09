@@ -204,4 +204,4 @@ def convert_to_wims(df):
 
     wims_df = wims_df.dropna(subset=["Value"])
 
-    return wims_dfs
+    return wims_df
