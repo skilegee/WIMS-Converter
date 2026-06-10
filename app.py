@@ -12,9 +12,6 @@ if file:
 
     converted = convert_to_wims(df)
 
-    st.write("Mapped analytes:")
-    st.write(sorted(converted["Analyte"].unique()))
-
     st.write("Converted Data")
     st.dataframe(converted)
 
