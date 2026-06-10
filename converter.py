@@ -38,103 +38,103 @@ def map_analyte(name):
         return "Chromium Hexavalent"
 
     if "chromium iii" in name_lower and "dissolved" in name_lower:
-        return "Chromium, Dissolved"
+        return "Chromium Dissolved"
 
     if "chromium iii" in name_lower:
-        return "Chromium, Total Recoverable"
+        return "Chromium Total Recoverable"
 
     if "chromium" in name_lower and "dissolved" in name_lower:
-        return "Chromium, Dissolved"
+        return "Chromium Dissolved"
 
     if "chromium" in name_lower:
-        return "Chromium, Total Recoverable"
+        return "Chromium Total Recoverable"
 
     # =============================
     # COPPER
     # =============================
     if "copper" in name_lower and "dissolved" in name_lower:
-        return "Copper, Dissolved"
+        return "Copper Dissolved"
 
     if "copper" in name_lower:
-        return "Copper, Total Recoverable"
+        return "Copper Total Recoverable"
 
     # =============================
     # LEAD
     # =============================
     if "lead" in name_lower and "dissolved" in name_lower:
-        return "Lead, Dissolved"
+        return "Lead Dissolved"
 
     if "lead" in name_lower:
-        return "Lead, Total Recoverable"
+        return "Lead Total Recoverable"
 
     # =============================
     # CADMIUM
     # =============================
     if "cadmium" in name_lower and "dissolved" in name_lower:
-        return "Cadmium, Dissolved"
+        return "Cadmium Dissolved"
 
     if "cadmium" in name_lower:
-        return "Cadmium, Total Recoverable"
+        return "Cadmium Total Recoverable"
 
     # =============================
     # ZINC
     # =============================
     if "zinc" in name_lower and "dissolved" in name_lower:
-        return "Zinc, Dissolved"
+        return "Zinc Dissolved"
 
     if "zinc" in name_lower:
-        return "Zinc, Total Recoverable"
+        return "Zinc Total Recoverable"
 
     # =============================
     # IRON
     # =============================
     if "iron" in name_lower and "dissolved" in name_lower:
-        return "Iron, Dissolved"
+        return "Iron Dissolved"
 
     if "iron" in name_lower:
-        return "Iron, Total Recoverable"
+        return "Iron Total Recoverable"
 
     # =============================
     # ARSENIC
     # =============================
     if "arsenic" in name_lower and "dissolved" in name_lower:
-        return "Arsenic, Dissolved"
+        return "Arsenic Dissolved"
 
     if "arsenic" in name_lower:
-        return "Arsenic, Total Recoverable"
+        return "Arsenic Total Recoverable"
 
     # =============================
     # NICKEL
     # =============================
     if "nickel" in name_lower and "dissolved" in name_lower:
-        return "Nickel, Dissolved"
+        return "Nickel Dissolved"
 
     if "nickel" in name_lower:
-        return "Nickel, Total Recoverable"
+        return "Nickel Total Recoverable"
 
     # =============================
     # SELENIUM
     # =============================
     if "selenium" in name_lower and "dissolved" in name_lower:
-        return "Selenium, Dissolved"
+        return "Selenium Dissolved"
 
     if "selenium" in name_lower:
-        return "Selenium, Total Recoverable"
+        return "Selenium Total Recoverable"
 
     # =============================
     # OTHER METALS
     # =============================
     if "silver" in name_lower and "dissolved" in name_lower:
-        return "Silver, Dissolved"
+        return "Silver Dissolved"
 
     if "silver" in name_lower:
-        return "Silver, Total Recoverable"
+        return "Silver Total Recoverable"
 
     if "molybdenum" in name_lower:
-        return "Molybdenum, Total Recoverable"
+        return "Molybdenum Total Recoverable"
 
     if "cyanide" in name_lower:
-        return "Cyanide, Total"
+        return "Cyanide Total"
 
     # fallback
     return name
