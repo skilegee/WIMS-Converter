@@ -2,8 +2,8 @@ import pandas as pd
 
 
 # -----------------------------
-# Convert mg/L → µg/L safely
-# while preserving "<" values
+# Convert mg/L → µg/L 
+# keep "<" values
 # -----------------------------
 def convert_mgL_to_ugL(value):
 
@@ -40,7 +40,7 @@ def convert_to_wims(df):
     df["Units"] = df["Units"].fillna("").astype(str).str.strip().str.lower()
 
     # -----------------------------
-    # Metals to convert ONLY
+    # Metals to convert 
     # -----------------------------
     metals_to_convert = [
         "Copper",
@@ -85,6 +85,57 @@ def convert_to_wims(df):
     # Update units after conversion
     df.loc[convert_mask, "Units"] = "ug/L"
 
+
+    # --------------------------------------------------
+    # DIFFERENTIATE BTWN TOTAL AND INORGANIC NITROGEN
+    # --------------------------------------------------
+
+    extra_rows = []
+
+    tin_rows = df[df["ANALYTE"] == "Total and Inorganic Nitrogen"]
+
+    if len(tin_rows) == 2:
+
+     # Convert to numeric just in case
+        tin_rows = tin_rows.copy()
+        tin_rows["RESULT"] = pd.to_numeric(tin_rows["RESULT"], errors="coerce")
+
+        # Smallest = Inorganic, Largest = Total
+        tin_rows = tin_rows.sort_values("RESULT")
+
+        inorganic_n = tin_rows.iloc[0]
+        total_n = tin_rows.iloc[1]
+
+        # Safety check - Total > Inorganic 
+        if total_n["RESULT"] < inorganic_n["RESULT"]:
+            raise ValueError(
+                f"Total Nitrogen ({total_n['RESULT']}) is less than "
+                f"Inorganic Nitrogen ({inorganic_n['RESULT']})"
+            )
+
+         # Create replacement rows
+        extra_rows.append({
+            "StartTime": total_n["SAMPDATE"],
+            "StopTime": total_n["SAMPDATE"],
+            "SampleLocation": total_n["SAMPLENAME"],
+            "Analyte": "Total Nitrogen",
+            "Value": total_n["RESULT"],
+            "Notes": total_n["METHOD"]
+        })
+
+        extra_rows.append({
+            "StartTime": inorganic_n["SAMPDATE"],
+            "StopTime": inorganic_n["SAMPDATE"],
+            "SampleLocation": inorganic_n["SAMPLENAME"],
+            "Analyte": "Inorganic Nitrogen",
+            "Value": inorganic_n["RESULT"],
+            "Notes": inorganic_n["METHOD"]
+        })
+
+        # Remove original combined rows
+        df = df[df["ANALYTE"] != "Total and Inorganic Nitrogen"]
+
+
     # -----------------------------
     # BUILD WIMS OUTPUT
     # -----------------------------
@@ -96,6 +147,12 @@ def convert_to_wims(df):
         "Value": df["RESULT"],
         "Notes": df["METHOD"]
     })
+
+    if extra_rows:
+    wims_df = pd.concat(
+        [wims_df, pd.DataFrame(extra_rows)],
+        ignore_index=True
+    )
 
     # Remove empty results only
     wims_df = wims_df.dropna(subset=["Value"])
