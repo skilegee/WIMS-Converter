@@ -149,11 +149,11 @@ def convert_to_wims(df):
     })
 
     if extra_rows:
-    wims_df = pd.concat(
-        [wims_df, pd.DataFrame(extra_rows)],
-        ignore_index=True
-    )
-
+        wims_df = pd.concat(
+            [wims_df, pd.DataFrame(extra_rows)],
+            ignore_index=True
+        )
+    
     # Remove empty results only
     wims_df = wims_df.dropna(subset=["Value"])
 
