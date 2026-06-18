@@ -56,7 +56,13 @@ def convert_to_wims(df):
         "Hexavalent Chromium",
         "Zinc",
         "Cyanide",
-        "Nonylphenol"
+        "Nonylphenol",
+        "Mercury",
+        "Magnesium",
+        "Manganese",
+        "Nonylphenols",
+        "Phenols",
+        "Chromium III"
     ]
 
     # -----------------------------
