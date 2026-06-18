@@ -61,8 +61,7 @@ def convert_to_wims(df):
         "Magnesium",
         "Manganese",
         "Nonylphenols",
-        "Phenols",
-        "Chromium III"
+        "Phenols"
     ]
 
     # -----------------------------
