@@ -1,165 +1,185 @@
 import pandas as pd
 
 
-# -----------------------------
-# Convert mg/L → µg/L 
-# keep "<" values
-# -----------------------------
+# ==================================================
+# CONFIGURATION
+# ==================================================
+
+METALS_TO_CONVERT = [
+    "Copper",
+    "Lead",
+    "Iron",
+    "Arsenic",
+    "Cadmium",
+    "Molybdenum",
+    "Nickel",
+    "Selenium",
+    "Silver",
+    "Chromium",
+    "Hexavalent Chromium",
+    "Zinc",
+    "Cyanide",
+    "Nonylphenol",
+    "Mercury",
+    "Magnesium",
+    "Manganese",
+    "Nonylphenols",
+    "Phenols"
+]
+
+
+# ==================================================
+# CLEAN DATA
+# ==================================================
+
+def clean_dataframe(df):
+
+    df = df.copy()
+
+    text_columns = [
+        "SAMPLENAME",
+        "ANALYTE",
+        "METHOD",
+        "Units",
+        "RESULT"
+    ]
+
+    for col in text_columns:
+        df[col] = (
+            df[col]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+
+    df["Units"] = df["Units"].str.lower()
+
+    return df
+
+
+# ==================================================
+# UNIT CONVERSION
+# ==================================================
+
 def convert_mgL_to_ugL(value):
 
     value = str(value).strip()
 
-    # Handle non-detects like "<0.0010"
     if value.startswith("<"):
         try:
-            num = float(value[1:])
-            return f"<{num * 1000:g}"
+            return f"<{float(value[1:]) * 1000:g}"
         except:
             return value
 
-    # Handle normal numeric values
     try:
-        return str(float(value) * 1000)
+        return f"{float(value) * 1000:g}"
     except:
         return value
 
 
-# -----------------------------
-# MAIN CONVERSION FUNCTION
-# -----------------------------
-def convert_to_wims(df):
+def convert_selected_metals(df):
 
-    # IMPORTANT FIX:
-    # prevent pandas string dtype crash
-    df["RESULT"] = df["RESULT"].astype("object")
+    pattern = "|".join(METALS_TO_CONVERT)
 
-    # Clean text fields safely
-    df["SAMPLENAME"] = df["SAMPLENAME"].fillna("").astype(str).str.strip()
-    df["ANALYTE"] = df["ANALYTE"].fillna("").astype(str).str.strip()
-    df["METHOD"] = df["METHOD"].fillna("").astype(str).str.strip()
-    df["Units"] = df["Units"].fillna("").astype(str).str.strip().str.lower()
+    mask = (
+        df["ANALYTE"].str.contains(
+            pattern,
+            case=False,
+            na=False
+        )
+        &
+        (df["Units"] == "mg/l")
+    )
 
-    # -----------------------------
-    # Metals to convert 
-    # -----------------------------
-    metals_to_convert = [
-        "Copper",
-        "Lead",
-        "Iron",
-        "Arsenic",
-        "Cadmium",
-        "Molybdenum",
-        "Nickel",
-        "Selenium",
-        "Silver",
-        "Chromium",
-        "Hexavalent Chromium",
-        "Zinc",
-        "Cyanide",
-        "Nonylphenol",
-        "Mercury",
-        "Magnesium",
-        "Manganese",
-        "Nonylphenols",
-        "Phenols"
-    ]
+    df.loc[mask, "RESULT"] = (
+        df.loc[mask, "RESULT"]
+        .apply(convert_mgL_to_ugL)
+    )
 
-    # -----------------------------
-    # Detect matching analytes
-    # (handles long names like ICPMS labels)
-    # -----------------------------
-    metal_mask = df["ANALYTE"].apply(
-        lambda x: any(
-            metal.lower() in x.lower()
-            for metal in metals_to_convert
+    df.loc[mask, "Units"] = "ug/L"
+
+    return df
+
+
+# ==================================================
+# SPECIAL LAB RULES
+# ==================================================
+
+def split_total_inorganic_nitrogen(df):
+
+    mask = (
+        df["ANALYTE"]
+        .str.contains(
+            "Total and Inorganic Nitrogen",
+            case=False,
+            na=False
         )
     )
 
-    # Only convert mg/L rows
-    unit_mask = df["Units"].eq("mg/l")
+    rows = df[mask].copy()
 
-    convert_mask = metal_mask & unit_mask
+    if len(rows) != 2:
+        return df
 
-    # -----------------------------
-    # APPLY CONVERSION
-    # -----------------------------
-    df.loc[convert_mask, "RESULT"] = df.loc[convert_mask, "RESULT"].apply(
-        convert_mgL_to_ugL
+    rows["SORT"] = (
+        rows["RESULT"]
+        .str.replace("<", "", regex=False)
+        .astype(float)
     )
 
-    # Update units after conversion
-    df.loc[convert_mask, "Units"] = "ug/L"
+    rows = rows.sort_values("SORT")
+
+    inorganic = rows.iloc[0].copy()
+    total = rows.iloc[1].copy()
+
+    inorganic["ANALYTE"] = "Inorganic Nitrogen"
+    total["ANALYTE"] = "Total Nitrogen"
+
+    df = df[~mask]
+
+    df = pd.concat(
+        [
+            df,
+            pd.DataFrame([inorganic, total])
+        ],
+        ignore_index=True
+    )
+
+    return df
 
 
-    # --------------------------------------------------
-    # DIFFERENTIATE BTWN TOTAL AND INORGANIC NITROGEN
-    # --------------------------------------------------
+# ==================================================
+# BUILD WIMS OUTPUT
+# ==================================================
 
-    extra_rows = []
+def build_wims_output(df):
 
-    tin_rows = df[df["ANALYTE"] == "Total and Inorganic Nitrogen"]
-
-    if len(tin_rows) == 2:
-
-     # Convert to numeric just in case
-        tin_rows = tin_rows.copy()
-        tin_rows["RESULT"] = pd.to_numeric(tin_rows["RESULT"], errors="coerce")
-
-        # Smallest = Inorganic, Largest = Total
-        tin_rows = tin_rows.sort_values("RESULT")
-
-        inorganic_n = tin_rows.iloc[0]
-        total_n = tin_rows.iloc[1]
-
-        # Safety check - Total > Inorganic 
-        if total_n["RESULT"] < inorganic_n["RESULT"]:
-            raise ValueError(
-                f"Total Nitrogen ({total_n['RESULT']}) is less than "
-                f"Inorganic Nitrogen ({inorganic_n['RESULT']})"
-            )
-
-         # Create replacement rows
-        extra_rows.append({
-            "StartTime": total_n["SAMPDATE"],
-            "StopTime": total_n["SAMPDATE"],
-            "SampleLocation": total_n["SAMPLENAME"],
-            "Analyte": "Total Nitrogen",
-            "Value": total_n["RESULT"],
-            "Notes": total_n["METHOD"]
-        })
-
-        extra_rows.append({
-            "StartTime": inorganic_n["SAMPDATE"],
-            "StopTime": inorganic_n["SAMPDATE"],
-            "SampleLocation": inorganic_n["SAMPLENAME"],
-            "Analyte": "Inorganic Nitrogen",
-            "Value": inorganic_n["RESULT"],
-            "Notes": inorganic_n["METHOD"]
-        })
-
-        # Remove original combined rows
-        df = df[df["ANALYTE"] != "Total and Inorganic Nitrogen"]
-
-
-    # -----------------------------
-    # BUILD WIMS OUTPUT
-    # -----------------------------
     wims_df = pd.DataFrame({
+
         "StartTime": df["SAMPDATE"],
         "StopTime": df["SAMPDATE"],
         "SampleLocation": df["SAMPLENAME"],
         "Analyte": df["ANALYTE"],
         "Value": df["RESULT"],
         "Notes": df["METHOD"]
+
     })
 
-    if extra_rows:
-        wims_df = pd.concat(
-            [wims_df, pd.DataFrame(extra_rows)],
-            ignore_index=True
-        )
-    
-    # Remove empty results only
-    wims_df = wims_df.dropna(subset=["Value"])
+    return wims_df.dropna(subset=["Value"])
+
+
+# ==================================================
+# MAIN FUNCTION
+# ==================================================
+
+def convert_to_wims(df):
+
+    df = clean_dataframe(df)
+
+    df = convert_selected_metals(df)
+
+    df = split_total_inorganic_nitrogen(df)
+
+    wims_df = build_wims_output(df)
 
     return wims_df
