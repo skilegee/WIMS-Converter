@@ -109,175 +109,254 @@ def convert_selected_metals(df):
 
 def split_total_inorganic_nitrogen(df):
 
-    # Find all rows containing
-    # "Total and Inorganic Nitrogen"
-    mask = (
+    # --------------------------------------------------
+    # Make a copy so we don't accidentally modify the
+    # original dataframe while processing nitrogen.
+    # --------------------------------------------------
+
+    df = df.copy()
+
+    # --------------------------------------------------
+    # Find all rows containing:
+    #
+    # Total and Inorganic Nitrogen
+    #
+    # Case-insensitive and allows extra spaces.
+    # --------------------------------------------------
+
+    nitrogen_mask = (
         df["ANALYTE"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
         .str.contains(
-            "Total and Inorganic Nitrogen",
+            "total and inorganic nitrogen",
             case=False,
             na=False
         )
     )
 
-    # Get only the nitrogen rows
-    tin_rows = df[mask].copy()
+    nitrogen_rows = df[nitrogen_mask].copy()
 
-    # If there are no nitrogen rows,
-    # return the original dataframe
-    if tin_rows.empty:
+    # --------------------------------------------------
+    # Nothing to process
+    # --------------------------------------------------
+
+    if nitrogen_rows.empty:
         return df
 
     # --------------------------------------------------
-    # Create a temporary numeric value for comparison
+    # Make sure LABSAMPID exists.
+    #
+    # LABSAMPID is preferable to SAMPLENAME because it
+    # uniquely identifies the laboratory sample.
     # --------------------------------------------------
 
-    tin_rows["RESULT_NUMERIC"] = (
-        tin_rows["RESULT"]
+    if "LABSAMPID" not in nitrogen_rows.columns:
+
+        raise ValueError(
+            "LABSAMPID column was not found in the laboratory "
+            "file. The nitrogen conversion requires LABSAMPID "
+            "to identify individual samples."
+        )
+
+    # --------------------------------------------------
+    # Clean LABSAMPID
+    # --------------------------------------------------
+
+    nitrogen_rows["LABSAMPID"] = (
+        nitrogen_rows["LABSAMPID"]
+        .fillna("")
         .astype(str)
-        .str.replace("<", "", regex=False)
         .str.strip()
     )
 
-    tin_rows["RESULT_NUMERIC"] = pd.to_numeric(
-        tin_rows["RESULT_NUMERIC"],
+    # --------------------------------------------------
+    # Create a temporary numeric version of RESULT.
+    #
+    # IMPORTANT:
+    # This does NOT change the original RESULT.
+    #
+    # Example:
+    #
+    # "<0.50" → 0.50
+    # "8.5"   → 8.5
+    #
+    # This is ONLY used to determine which result is
+    # smaller/larger.
+    # --------------------------------------------------
+
+    nitrogen_rows["RESULT_NUMERIC"] = (
+        nitrogen_rows["RESULT"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .str.replace("<", "", regex=False)
+        .str.replace(">", "", regex=False)
+        .str.strip()
+    )
+
+    nitrogen_rows["RESULT_NUMERIC"] = pd.to_numeric(
+        nitrogen_rows["RESULT_NUMERIC"],
         errors="coerce"
     )
 
     # --------------------------------------------------
-    # Check for invalid nitrogen results
+    # Check for results that could not be interpreted.
     # --------------------------------------------------
 
-    if tin_rows["RESULT_NUMERIC"].isna().any():
+    invalid_results = nitrogen_rows[
+        nitrogen_rows["RESULT_NUMERIC"].isna()
+    ]
 
-        bad_rows = tin_rows[
-            tin_rows["RESULT_NUMERIC"].isna()
-        ]
+    if not invalid_results.empty:
+
+        bad_values = (
+            invalid_results["RESULT"]
+            .astype(str)
+            .unique()
+            .tolist()
+        )
 
         raise ValueError(
-            "One or more Total and Inorganic Nitrogen "
-            "results could not be interpreted as numbers."
+            "The following Total and Inorganic Nitrogen "
+            f"results could not be interpreted: {bad_values}"
         )
 
     # --------------------------------------------------
-    # Group nitrogen results by sample
-    # --------------------------------------------------
+    # Group by LABSAMPID.
     #
-    # This allows the program to handle:
+    # This allows the program to process:
     #
-    # Sample 1 → 2 nitrogen rows
-    # Sample 2 → 2 nitrogen rows
-    # Sample 3 → 2 nitrogen rows
+    # Sample 1 → two nitrogen results
+    # Sample 2 → two nitrogen results
+    # Sample 3 → two nitrogen results
     #
-    # etc.
+    # ...and so on.
     # --------------------------------------------------
 
-    grouped = tin_rows.groupby(
-        ["SAMPLENAME", "SAMPDATE"],
+    grouped = nitrogen_rows.groupby(
+        "LABSAMPID",
         sort=False
     )
 
     replacement_rows = []
 
     # --------------------------------------------------
-    # Process each sample individually
+    # Process every laboratory sample separately.
     # --------------------------------------------------
 
-    for _, group in grouped:
+    for sample_id, group in grouped:
 
-        # Each sample should have exactly
-        # two Total and Inorganic Nitrogen results
+        # --------------------------------------------------
+        # Each sample MUST contain exactly two results.
+        # --------------------------------------------------
 
         if len(group) != 2:
 
-            sample_name = group.iloc[0]["SAMPLENAME"]
-            sample_date = group.iloc[0]["SAMPDATE"]
-
             raise ValueError(
-                f"Expected exactly 2 Total and Inorganic "
-                f"Nitrogen results for sample "
-                f"'{sample_name}' on '{sample_date}', "
-                f"but found {len(group)}."
+                f"Sample {sample_id} has {len(group)} "
+                "rows labeled 'Total and Inorganic Nitrogen'. "
+                "Exactly 2 results are required."
             )
 
         # --------------------------------------------------
+        # Sort from smallest → largest.
+        #
         # Smallest = Inorganic Nitrogen
-        # Largest = Total Nitrogen
+        # Largest   = Total Nitrogen
         # --------------------------------------------------
 
         group = group.sort_values(
             "RESULT_NUMERIC"
         )
 
-        inorganic_n = group.iloc[0].copy()
-        total_n = group.iloc[1].copy()
+        inorganic_row = group.iloc[0].copy()
+        total_row = group.iloc[1].copy()
+
+        inorganic_value = inorganic_row["RESULT_NUMERIC"]
+        total_value = total_row["RESULT_NUMERIC"]
 
         # --------------------------------------------------
-        # Safety check
+        # Make sure the values are actually different.
+        #
+        # If both values are identical, we cannot determine
+        # which one is Total and which one is Inorganic
+        # using the requested "smallest/largest" rule.
         # --------------------------------------------------
 
-        if (
-            total_n["RESULT_NUMERIC"]
-            < inorganic_n["RESULT_NUMERIC"]
-        ):
+        if inorganic_value == total_value:
 
             raise ValueError(
-                f"Total Nitrogen ({total_n['RESULT']}) "
-                f"is less than Inorganic Nitrogen "
-                f"({inorganic_n['RESULT']}) for sample "
-                f"'{total_n['SAMPLENAME']}'."
+                f"Sample {sample_id} has two identical "
+                f"Total and Inorganic Nitrogen results "
+                f"({inorganic_row['RESULT']}). "
+                "The converter cannot determine which is "
+                "Total Nitrogen and which is Inorganic Nitrogen."
             )
 
         # --------------------------------------------------
-        # Rename analytes
+        # Assign the analyte names.
         # --------------------------------------------------
 
-        inorganic_n["ANALYTE"] = "Inorganic Nitrogen"
-        total_n["ANALYTE"] = "Total Nitrogen"
+        inorganic_row["ANALYTE"] = "Inorganic Nitrogen"
+
+        total_row["ANALYTE"] = "Total Nitrogen"
 
         # --------------------------------------------------
-        # Remove temporary comparison column
+        # Remove temporary comparison column.
+        #
+        # The original RESULT remains untouched, meaning:
+        #
+        # "<0.50" stays "<0.50"
         # --------------------------------------------------
 
-        inorganic_n = inorganic_n.drop(
+        inorganic_row = inorganic_row.drop(
             "RESULT_NUMERIC"
         )
 
-        total_n = total_n.drop(
+        total_row = total_row.drop(
             "RESULT_NUMERIC"
         )
 
-        # Add converted rows to list
+        # --------------------------------------------------
+        # Save the two converted rows.
+        # --------------------------------------------------
 
-        replacement_rows.append(inorganic_n)
-        replacement_rows.append(total_n)
-
-    # --------------------------------------------------
-    # Remove original combined nitrogen rows
-    # --------------------------------------------------
-
-    df = df[~mask].copy()
+        replacement_rows.append(inorganic_row)
+        replacement_rows.append(total_row)
 
     # --------------------------------------------------
-    # Add the newly labeled nitrogen rows
+    # Remove the original:
+    #
+    # Total and Inorganic Nitrogen
+    #
+    # rows from the dataframe.
+    # --------------------------------------------------
+
+    df = df[
+        ~nitrogen_mask
+    ].copy()
+
+    # --------------------------------------------------
+    # Add the newly labeled rows.
     # --------------------------------------------------
 
     if replacement_rows:
 
-        nitrogen_df = pd.DataFrame(
+        nitrogen_output = pd.DataFrame(
             replacement_rows
         )
 
         df = pd.concat(
             [
                 df,
-                nitrogen_df
+                nitrogen_output
             ],
             ignore_index=True
         )
 
     return df
-
 
 # ==================================================
 # BUILD WIMS OUTPUT
